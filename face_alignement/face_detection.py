@@ -76,3 +76,7 @@ if __name__ == '__main__':
 
     for i, p in enumerate(persons):
         print(f"Person {i} with {len(p.frames)} frames")
+        if len(p.frames) >= 100:
+            print('Saving 100 frames...')
+            for j, f in enumerate(p.frames[:5]):
+                cv2.imwrite(f'frame{j}.jpg', f)
