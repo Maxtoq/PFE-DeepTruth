@@ -118,7 +118,9 @@ if __name__ == '__main__':
     detector = dlib.get_frontal_face_detector()
     sp = dlib.shape_predictor(SHAPE_PREDICTOR_FILE)
 
-    nb_files = len([f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir, f))])
+    nb_files = 0
+    for (dirpath, dirnames, filenames) in os.walk(source_dir):
+        nb_files += len(filenames)
     count_files = 0
     for (dirpath, _, filenames) in os.walk(source_dir):
         for f in filenames:
