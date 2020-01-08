@@ -1,5 +1,12 @@
+import os
+import re
 import cv2
 import dlib
+import argparse
+
+
+SHAPE_PREDICTOR_FILE = "face_alignement/shape_predictor_5_face_landmarks.dat"
+
 
 class Face(object):
 
@@ -44,13 +51,10 @@ class Face(object):
         return True
 
 
-if __name__ == '__main__':
-    detector = dlib.get_frontal_face_detector()
-    sp = dlib.shape_predictor("face_alignement/shape_predictor_5_face_landmarks.dat")
-
+def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100):
     persons = []
 
-    vid = cv2.VideoCapture("face_alignement/033.mp4")
+    vid = cv2.VideoCapture(video_file)
     success, image = vid.read()
     frame = 0
     while success:
@@ -58,8 +62,9 @@ if __name__ == '__main__':
         dets = detector(image, 0)
 
         for detection in dets:
-            face_im = dlib.get_face_chip(image, sp(image, detection))
-
+            # Align face and crop
+            face_im = dlib.get_face_chip(image, shape_predictor(image, detection))
+            # Assign face to person
             is_known = False
             for p in persons:
                 if p.is_me(detection.tl_corner(), detection.br_corner(), face_im):
@@ -74,9 +79,53 @@ if __name__ == '__main__':
         success, image = vid.read()
         frame += 1
 
+    count = 0
     for i, p in enumerate(persons):
         print(f"Person {i} with {len(p.frames)} frames")
         if len(p.frames) >= 100:
-            print('Saving 100 frames...')
-            for j, f in enumerate(p.frames[:5]):
-                cv2.imwrite(f'frame{j}.jpg', f)
+            count += 1
+            video_name = video_file.replace('\\', '_')[:-4]
+            # Create dir
+            dir_path = os.path.join(output_dir, video_name)
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path)
+
+            print(f'Saving frames in {dir_path}...')
+            # Save pictures TO MODIFY WITH nb_frames
+            for j, f in enumerate(p.frames):
+                print(os.path.join(dir_path, f'frame{j}.jpg'))
+                cv2.imwrite(os.path.join(dir_path, f'frame{j}.jpg'), f)
+
+    return count
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Face alignement on multiple input videos.')
+    parser.add_argument('-s', '--source', help='source directory containing all input videos',
+                        default=None, type=str)
+    parser.add_argument('-o', '--output', help='output directory',
+                        default=None, type=str)
+    args = parser.parse_args()
+    source_dir = args.source
+    output_dir = args.output
+
+    if source_dir is None:
+        print('Source directory must be specified.')
+        exit(0)
+    if output_dir is None:
+        print('Output directory must be specified.')
+        exit(0)
+
+    detector = dlib.get_frontal_face_detector()
+    sp = dlib.shape_predictor(SHAPE_PREDICTOR_FILE)
+
+    for (dirpath, _, filenames) in os.walk(source_dir):
+        for f in filenames:
+            video_file = os.path.join(dirpath, f)
+            if video_file[-4:] != '.mp4':
+                print(f'\'{video_file}\' is not a video file.')
+                continue
+            
+            count_faces = align_video(video_file, detector, sp, output_dir)
+            if count_faces != 1:
+                print(f'Video \'{video_file}\' has {count_faces} faces.')
