@@ -84,7 +84,7 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
         print(f"Person {i} with {len(p.frames)} frames")
         if len(p.frames) >= 100:
             count += 1
-            video_name = video_file.replace('\\', '_')[1:-4] + '_face' + str(i)
+            video_name = video_file.replace('\\', '_')[3:-4] + '_face' + str(i)
             # Create dir
             dir_path = os.path.join(output_dir, video_name)
             if not os.path.exists(dir_path):
