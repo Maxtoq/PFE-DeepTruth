@@ -58,7 +58,7 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
     success, image = vid.read()
     frame = 0
     while success:
-        print(f"Frame #{frame}")
+        #print(f"Frame #{frame}")
         dets = detector(image, 0)
 
         for detection in dets:
@@ -84,7 +84,7 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
         print(f"Person {i} with {len(p.frames)} frames")
         if len(p.frames) >= 100:
             count += 1
-            video_name = video_file.replace('\\', '_')[:-4]
+            video_name = video_file.replace('\\', '_')[1:-4] + '_face' + str(i)
             # Create dir
             dir_path = os.path.join(output_dir, video_name)
             if not os.path.exists(dir_path):
@@ -93,7 +93,6 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
             print(f'Saving frames in {dir_path}...')
             # Save pictures TO MODIFY WITH nb_frames
             for j, f in enumerate(p.frames):
-                print(os.path.join(dir_path, f'frame{j}.jpg'))
                 cv2.imwrite(os.path.join(dir_path, f'frame{j}.jpg'), f)
 
     return count
@@ -119,13 +118,17 @@ if __name__ == '__main__':
     detector = dlib.get_frontal_face_detector()
     sp = dlib.shape_predictor(SHAPE_PREDICTOR_FILE)
 
+    nb_files = len([f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir, f))])
+    count_files = 0
     for (dirpath, _, filenames) in os.walk(source_dir):
         for f in filenames:
+            count_files += 1
+            print(f'\nFile {count_files}/{nb_files}')
             video_file = os.path.join(dirpath, f)
             if video_file[-4:] != '.mp4':
                 print(f'\'{video_file}\' is not a video file.')
                 continue
-            
+            print('Analysing', video_file)
             count_faces = align_video(video_file, detector, sp, output_dir)
             if count_faces != 1:
                 print(f'Video \'{video_file}\' has {count_faces} faces.')
