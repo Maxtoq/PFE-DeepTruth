@@ -24,7 +24,11 @@ class DeepFaceDetector(object):
             output = Dense(2, activation='softmax')(xception.layers[-2].output)
             return Model(xception.inputs, output)
         else:
-            return load_model(CHECKPOINT_PATH)
+            if os.path.isfile(model_checkpoint):
+                return load_model(CHECKPOINT_PATH)
+            else:
+                print('ERROR: Checkpoint path is not a valid path.')
+                exit(0)
 
     def save_model(self):
         self.model.save(CHECKPOINT_PATH)
@@ -32,4 +36,7 @@ class DeepFaceDetector(object):
 
 if __name__ == '__main__':
     detector = DeepFaceDetector(CHECKPOINT_PATH)
+
+
+
     detector.save_model()
