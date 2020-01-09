@@ -100,19 +100,19 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Face alignement on multiple input videos.')
-    parser.add_argument('-s', '--source', help='source directory containing all input videos',
+    parser.add_argument('-s', '--source', help='-s <source_dir_path> : source directory containing all input videos',
                         default=None, type=str)
-    parser.add_argument('-o', '--output', help='output directory',
+    parser.add_argument('-o', '--output', help='-o <output_dir_path> : output directory',
                         default=None, type=str)
     args = parser.parse_args()
     source_dir = args.source
     output_dir = args.output
 
     if source_dir is None:
-        print('Source directory must be specified.')
+        print('Source directory (-s) must be specified. Enter \'python face_detection.py -h\' to prompt help.')
         exit(0)
     if output_dir is None:
-        print('Output directory must be specified.')
+        print('Output directory (-o) must be specified. Enter \'python face_detection.py -h\' to prompt help.')
         exit(0)
 
     detector = dlib.get_frontal_face_detector()
@@ -133,4 +133,4 @@ if __name__ == '__main__':
             print('Analysing', video_file)
             count_faces = align_video(video_file, detector, sp, output_dir)
             if count_faces != 1:
-                print(f'Video \'{video_file}\' has {count_faces} faces.')
+                print(f'WARNING : Video \'{video_file}\' has {count_faces} faces.')
