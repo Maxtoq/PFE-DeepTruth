@@ -24,22 +24,29 @@ class Face(object):
 
         self.frames = [face_im]
 
+        self.frame = 0
+
     def is_me(self, new_pos1, new_pos2, face_im):
         """ Verifies if the given attributes correspond to this face. """
         # Compute the criteria for knowing if the faces are the same
         # (percentage of the frame size)
-        crit_x = (self.l[0] / self.frame_size[0]) * 100
-        crit_y = (self.l[1] / self.frame_size[1]) * 100
+        crit_x = (self.l[0] / self.frame_size[0]) * 1000
+        crit_y = (self.l[1] / self.frame_size[1]) * 1000
+        print(crit_x, crit_y)
 
         new_l = (new_pos2.x - new_pos1.x, new_pos2.y - new_pos1.y)
+
         # Check that the size of the new face corresponds to self
         if new_l[1] < self.l[1] - crit_y or new_l[1] > self.l[1] + crit_y:
+            self.frame += 1
             return False
         
         # Check that the position corresponds to self
         if new_pos1.x < self.pos1.x - crit_x or new_pos1.x > self.pos1.x + crit_x:
+            self.frame += 1
             return False
         if new_pos1.y < self.pos1.y - crit_y or new_pos1.y > self.pos1.y + crit_y:
+            self.frame += 1
             return False
 
         # The new face corresponds to self, update the attributes
@@ -47,7 +54,7 @@ class Face(object):
         self.pos2 = new_pos2
         self.l = new_l
         self.frames.append(face_im)
-
+        self.frame =0
         return True
 
 
@@ -58,7 +65,7 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
     success, image = vid.read()
     frame = 0
     while success:
-        #print(f"Frame #{frame}")
+        print(f"Frame #{frame}")
         dets = detector(image, 0)
 
         for detection in dets:
@@ -78,6 +85,8 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
 
         success, image = vid.read()
         frame += 1
+
+        print(len(persons))
 
     count = 0
     for i, p in enumerate(persons):
