@@ -12,7 +12,7 @@ class Face(object):
 
     """ Detected face in the video. """
 
-    def __init__(self, pos1, pos2, face_im, frame_size):
+    def __init__(self, pos1, pos2, face_im, frame_size, frame_num):
         # Frame size tuple
         self.frame_size = frame_size
         # Position in the video
@@ -22,11 +22,10 @@ class Face(object):
         # Length of the face
         self.l = (pos2.x - pos1.x, pos2.y - pos1.y)
 
-        self.frames = [face_im]
+        # Dict containing all frames of face
+        self.frames = { frame_num: face_im }
 
-        self.frame = 0
-
-    def is_me(self, new_pos1, new_pos2, face_im):
+    def is_me(self, new_pos1, new_pos2, face_im, frame_num):
         """ Verifies if the given attributes correspond to this face. """
         # Compute the criteria for knowing if the faces are the same
         # (percentage of the frame size)
@@ -38,23 +37,20 @@ class Face(object):
 
         # Check that the size of the new face corresponds to self
         if new_l[1] < self.l[1] - crit_y or new_l[1] > self.l[1] + crit_y:
-            self.frame += 1
             return False
         
         # Check that the position corresponds to self
         if new_pos1.x < self.pos1.x - crit_x or new_pos1.x > self.pos1.x + crit_x:
-            self.frame += 1
             return False
         if new_pos1.y < self.pos1.y - crit_y or new_pos1.y > self.pos1.y + crit_y:
-            self.frame += 1
             return False
 
         # The new face corresponds to self, update the attributes
         self.pos1 = new_pos1
         self.pos2 = new_pos2
         self.l = new_l
-        self.frames.append(face_im)
-        self.frame =0
+        # Check if we already have a frame at this frame_num
+        self.frames[frame_num] = face_im
         return True
 
 
@@ -74,13 +70,15 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
             # Assign face to person
             is_known = False
             for p in persons:
-                if p.is_me(detection.tl_corner(), detection.br_corner(), face_im):
+                if p.is_me(detection.tl_corner(), detection.br_corner(), face_im, frame):
                     is_known = True
             if not is_known:
                 persons.append(Face(
                                 detection.tl_corner(), 
                                 detection.br_corner(), 
-                                face_im, image.shape[:-1]
+                                face_im, 
+                                image.shape[:-1],
+                                frame
                             ))
 
         success, image = vid.read()
@@ -101,8 +99,8 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
 
             print(f'Saving frames in {dir_path}...')
             # Save pictures TO MODIFY WITH nb_frames
-            for j, f in enumerate(p.frames):
-                cv2.imwrite(os.path.join(dir_path, f'frame{j}.jpg'), f)
+            for k, f in p.frames.items():
+                cv2.imwrite(os.path.join(dir_path, f'frame{k}.jpg'), f)
 
     return count
 
