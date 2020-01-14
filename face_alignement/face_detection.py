@@ -2,7 +2,9 @@ import os
 import re
 import cv2
 import dlib
+import math
 import argparse
+import numpy as np
 
 
 SHAPE_PREDICTOR_FILE = "face_alignement/shape_predictor_5_face_landmarks.dat"
@@ -24,6 +26,18 @@ class Face(object):
 
         # Dict containing all frames of face
         self.frames = { frame_num: face_im }
+
+    def get_dist(self, new_pos1, frame_num):
+        if frame_num in self.frames:
+            return 10000
+        return math.sqrt((self.pos1.x - new_pos1.x)**2 + (self.pos1.y - new_pos1.y)**2)
+    
+    def add_frame(self, new_pos1, new_pos2, face_im, frame_num):
+        print(frame_num, self.l)
+        self.pos1 = new_pos1
+        self.pos2 = new_pos2
+        self.l = (new_pos2.x - new_pos1.x, new_pos2.y - new_pos1.y)
+        self.frames[frame_num] = face_im
 
     def is_me(self, new_pos1, new_pos2, face_im, frame_num):
         """ Verifies if the given attributes correspond to this face. """
@@ -58,30 +72,40 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
 
     vid = cv2.VideoCapture(video_file)
     success, image = vid.read()
-    frame = 0
+    min_height = image.shape[0] / 5
+    frame_num = 0
     while success:
-        #print(f"Frame #{frame}")
+        #print(f"Frame #{frame_num}")
         dets = detector(image, 0)
 
         for detection in dets:
+            if detection.height() < min_height:
+                break
             # Align face and crop
             face_im = dlib.get_face_chip(image, shape_predictor(image, detection))
             # Assign face to person
             is_known = False
+            dist = []
+            # Compute distances to all persons
             for p in persons:
-                if p.is_me(detection.tl_corner(), detection.br_corner(), face_im, frame):
-                    is_known = True
+                dist.append(p.get_dist(detection.tl_corner(), frame_num))
+            # Add frame to closest
+            if len(dist) > 0 and min(dist) < 10000:
+                is_known = True
+                persons[np.argmin(dist)].add_frame(detection.tl_corner(), detection.br_corner(), face_im, frame_num)
+                # if p.is_me(detection.tl_corner(), detection.br_corner(), face_im, frame_num):
+                #     is_known = True
             if not is_known:
                 persons.append(Face(
                                 detection.tl_corner(), 
                                 detection.br_corner(), 
                                 face_im, 
                                 image.shape[:-1],
-                                frame
+                                frame_num
                             ))
 
         success, image = vid.read()
-        frame += 1
+        frame_num += 1
 
     count = 0
     for i, p in enumerate(persons):
