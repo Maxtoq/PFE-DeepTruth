@@ -31,7 +31,6 @@ class Face(object):
         # (percentage of the frame size)
         crit_x = (self.l[0] / self.frame_size[0]) * 1000
         crit_y = (self.l[1] / self.frame_size[1]) * 1000
-        print(crit_x, crit_y)
 
         new_l = (new_pos2.x - new_pos1.x, new_pos2.y - new_pos1.y)
 
@@ -61,7 +60,7 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
     success, image = vid.read()
     frame = 0
     while success:
-        print(f"Frame #{frame}")
+        #print(f"Frame #{frame}")
         dets = detector(image, 0)
 
         for detection in dets:
@@ -83,8 +82,6 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
 
         success, image = vid.read()
         frame += 1
-
-        print(len(persons))
 
     count = 0
     for i, p in enumerate(persons):
