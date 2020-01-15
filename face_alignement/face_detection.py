@@ -33,36 +33,11 @@ class Face(object):
         return math.sqrt((self.pos1.x - new_pos1.x)**2 + (self.pos1.y - new_pos1.y)**2)
     
     def add_frame(self, new_pos1, new_pos2, face_im, frame_num):
-        print(frame_num, self.l)
+        if self.get_dist(new_pos1, frame_num) > self.l[1] * 2:
+            return False
         self.pos1 = new_pos1
         self.pos2 = new_pos2
         self.l = (new_pos2.x - new_pos1.x, new_pos2.y - new_pos1.y)
-        self.frames[frame_num] = face_im
-
-    def is_me(self, new_pos1, new_pos2, face_im, frame_num):
-        """ Verifies if the given attributes correspond to this face. """
-        # Compute the criteria for knowing if the faces are the same
-        # (percentage of the frame size)
-        crit_x = (self.l[0] / self.frame_size[0]) * 1000
-        crit_y = (self.l[1] / self.frame_size[1]) * 1000
-
-        new_l = (new_pos2.x - new_pos1.x, new_pos2.y - new_pos1.y)
-
-        # Check that the size of the new face corresponds to self
-        if new_l[1] < self.l[1] - crit_y or new_l[1] > self.l[1] + crit_y:
-            return False
-        
-        # Check that the position corresponds to self
-        if new_pos1.x < self.pos1.x - crit_x or new_pos1.x > self.pos1.x + crit_x:
-            return False
-        if new_pos1.y < self.pos1.y - crit_y or new_pos1.y > self.pos1.y + crit_y:
-            return False
-
-        # The new face corresponds to self, update the attributes
-        self.pos1 = new_pos1
-        self.pos2 = new_pos2
-        self.l = new_l
-        # Check if we already have a frame at this frame_num
         self.frames[frame_num] = face_im
         return True
 
@@ -72,13 +47,16 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
 
     vid = cv2.VideoCapture(video_file)
     success, image = vid.read()
-    min_height = image.shape[0] / 5
+
+    min_height = None
     frame_num = 0
     while success:
         #print(f"Frame #{frame_num}")
         dets = detector(image, 0)
 
         for detection in dets:
+            if min_height is None:
+                min_height = detection.height() * (2 / 3)
             if detection.height() < min_height:
                 break
             # Align face and crop
@@ -91,10 +69,8 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
                 dist.append(p.get_dist(detection.tl_corner(), frame_num))
             # Add frame to closest
             if len(dist) > 0 and min(dist) < 10000:
-                is_known = True
-                persons[np.argmin(dist)].add_frame(detection.tl_corner(), detection.br_corner(), face_im, frame_num)
-                # if p.is_me(detection.tl_corner(), detection.br_corner(), face_im, frame_num):
-                #     is_known = True
+                is_known = persons_raw[np.argmin(dist)].add_frame(detection.tl_corner(), detection.br_corner(), face_im_raw, frame_num)
+                
             if not is_known:
                 persons.append(Face(
                                 detection.tl_corner(), 
