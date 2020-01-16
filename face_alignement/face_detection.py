@@ -59,6 +59,9 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
                 min_height = detection.height() * (2 / 3)
             if detection.height() < min_height:
                 break
+            elif detection.height() > min_height * (5 / 3):
+                min_height = min_height * (5 / 3)
+
             # Align face and crop
             face_im = dlib.get_face_chip(image, shape_predictor(image, detection))
             # Assign face to person
@@ -69,7 +72,7 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
                 dist.append(p.get_dist(detection.tl_corner(), frame_num))
             # Add frame to closest
             if len(dist) > 0 and min(dist) < 10000:
-                is_known = persons_raw[np.argmin(dist)].add_frame(detection.tl_corner(), detection.br_corner(), face_im_raw, frame_num)
+                is_known = persons[np.argmin(dist)].add_frame(detection.tl_corner(), detection.br_corner(), face_im, frame_num)
                 
             if not is_known:
                 persons.append(Face(
