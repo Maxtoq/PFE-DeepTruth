@@ -17,22 +17,23 @@ def natural_keys(text):
     """ Sort in 'human' order. """
     return [atoi(c) for c in re.split(r'(\d+)', text)]
 
-def get_stacked_frames(dir):
+def get_stacked_frames(video_dir):
     frames = []
-    file_names = os.listdir(dir)
+    file_names = os.listdir(video_dir)
     file_names.sort(key=natural_keys)
     for im in file_names:
         if not im.endswith('.jpg'):
             continue
-        frames.append(cv2.imread(os.path.join(dir, im)))
+        frames.append(cv2.imread(os.path.join(video_dir, im)))
 
-    assert np.array(frames).shape == INPUT_SHAPE, 'Wrong number of images in dir ' + dir
+    assert np.array(frames).shape == INPUT_SHAPE, 'Wrong number of images in dir ' + video_dir
 
     return np.array(frames)
 
 def get_batch(source_dir, batch_size=64):
     video_name_list = []
     stacked_frames_list = []
+    label_list = []
     for i in range(batch_size):
         # Get random dir name
         dir_name = None
@@ -44,8 +45,12 @@ def get_batch(source_dir, batch_size=64):
         
         stacked_frames_list.append(get_stacked_frames(os.path.join(source_dir, dir_name)))
         
-        # Add Label
-
+        label_str = dir_name[-1]
+        if label not in ['0', '1']:
+            print(f'ERROR: {dir_name} has bad label.')
+        label = np.zeros((2))
+        label[int(label_str)] = 1.0
+        label_list.append(label)
 
     return np.array(stacked_frames_list)
 
@@ -63,8 +68,8 @@ def train(model, source_dir, nb_epochs=10):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Face alignement on multiple input videos.')
-    parser.add_argument('-s', '--source', help='-s <source_dir_path> : source directory containing all training and testing data',
+    parser = argparse.ArgumentParser(description='Training a 3d Convolutional model for Deeofake Detection.')
+    parser.add_argument('-s', '--source', help='-s <source_dir_path> : source directory containing all training and testing data.',
                         default=None, type=str)
     args = parser.parse_args()
     source_dir = args.source
