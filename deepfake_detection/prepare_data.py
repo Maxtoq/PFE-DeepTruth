@@ -1,6 +1,31 @@
 import os
+import re
+import random
+import shutil
 import argparse
 
+
+NB_FRAMES = 10
+
+
+def cut_video_name(name):
+    id_manip = name.find('manipulated')
+    if id_manip != -1:
+        return name[id_manip:]
+    id_orig = name.find('original')
+    if id_orig != -1:
+        return name[id_orig:]
+    return name
+
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+def natural_keys(text):
+    """ Sort in 'human' order. """
+    return [atoi(c) for c in re.split(r'(\d+)', text)]
+
+def get_frame_id(frame_name):
+    return int(re.split(r'(\d+)', frame_name)[1])
 
 def init_output_dir(output_dir):
     if not os.path.exists(os.path.join(output_dir, 'train')):
@@ -13,11 +38,35 @@ def check_source_dir(source_dir):
         print('ERROR: Source directory must contain only two directories: \'manipulated\' and \'originals\'.')
         exit(0)
 
+def create_data(source_dir, output_dir, label, train_split=0.8, nb_sample=4):
+    for video_dir in os.listdir(source_dir):
+        print(video_dir)
+        list_frames = os.listdir(os.path.join(source_dir, video_dir))
+        list_frames.sort(key=natural_keys)
 
-def create_data(source_dir, output_dir, label, train_split=0.8, nb_sample=1):
-    print(os.listdir(source_dir), label)
+        list_frames = list_frames[15:-15]
 
-    return 0
+        for i in range(nb_sample):
+            sample_frames = [list_frames.pop(0)]
+            while len(list_frames) >= NB_FRAMES - len(sample_frames):
+                next_frame = list_frames.pop(0)
+                if get_frame_id(next_frame) == get_frame_id(sample_frames[-1]) + 1:
+                    sample_frames.append(next_frame)
+                    if len(sample_frames) == NB_FRAMES:
+                        break
+                else:
+                    sample_frames = [next_frame]
+            # Save them in a new dir in output_dir with label in dir_path
+            if random.random() < train_split:
+                dir_name = 'train'
+            else:
+                dir_name = 'test'
+            dir_name = os.path.join(output_dir, dir_name, cut_video_name(video_dir) + f'_{str(i)}_{label}')
+            # Create dir
+            os.makedirs(dir_name)
+            # Save all frames
+            for f in sample_frames:
+                shutil.copyfile(os.path.join(source_dir, video_dir, f), os.path.join(dir_name, f))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Prepare data for training and testing a 3d Convolutional model.')
@@ -33,5 +82,5 @@ if __name__ == '__main__':
     
     init_output_dir(output_dir)
 
-    create_data(os.path.join(source_dir, 'originals'), output_dir, 0, nb_sample=4)
+    create_data(os.path.join(source_dir, 'originals'), output_dir, 0)
     create_data(os.path.join(source_dir, 'manipulated'), output_dir, 1)
