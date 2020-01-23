@@ -5,7 +5,7 @@ import random
 import argparse
 import numpy as np
 
-# from model import get_3dConv_model
+from model import get_3dConv_model
 
 
 INPUT_SHAPE = (10, 150, 150, 3)
@@ -46,7 +46,7 @@ def get_batch(source_dir, batch_size=64):
         stacked_frames_list.append(get_stacked_frames(os.path.join(source_dir, dir_name)))
         
         label_str = dir_name[-1]
-        if label not in ['0', '1']:
+        if label_str not in ['0', '1']:
             print(f'ERROR: {dir_name} has bad label.')
         label = np.zeros((2))
         label[int(label_str)] = 1.0
@@ -68,7 +68,7 @@ def train(model, source_dir, nb_epochs=10):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Training a 3d Convolutional model for Deeofake Detection.')
+    parser = argparse.ArgumentParser(description='Training a 3d Convolutional model for Deepfake Detection.')
     parser.add_argument('-s', '--source', help='-s <source_dir_path> : source directory containing all training and testing data.',
                         default=None, type=str)
     args = parser.parse_args()
