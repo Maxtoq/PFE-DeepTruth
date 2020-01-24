@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 
 
-class DeepFakeDetector(torch.nn.Module):
+class Conv3DDetector(torch.nn.Module):
     
     def __init__(self):
-        super(DeepFakeDetector, self).__init__()
+        super(Conv3DDetector, self).__init__()
         # 1st 3D Conv layer
         self.conv3D_1 = nn.Conv3d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1)
         self.maxpool3D_1 = nn.MaxPool3d(kernel_size=(1, 2, 2), stride=(1, 2, 2))
