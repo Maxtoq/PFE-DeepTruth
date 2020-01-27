@@ -5,6 +5,7 @@ import torch
 import random
 import argparse
 import numpy as np
+import torch.nn as nn
 import torch.optim as optim
 
 from model import Conv3DDetector
@@ -63,7 +64,7 @@ def get_batch(source_dir, cuda, batch_size=64, all_videos=False):
 
     stacked_frames_list = []
     label_list = []
-    for i in tqdm(range(batch_size)):
+    for i in range(batch_size):
         dir_name = video_dirs.pop(0)
         
         # Get frames of then chosen video in a tensor
@@ -75,12 +76,12 @@ def get_batch(source_dir, cuda, batch_size=64, all_videos=False):
         if label_str not in ['0', '1']:
             print(f'ERROR: {dir_name} has bad label.')
             exit(0)
-        label = np.zeros((2))
-        label[int(label_str)] = 1.0
-        label_list.append(label)
+        # label = np.zeros((2))
+        # label[int(label_str)] = 1.0
+        label_list.append(int(label_str))
 
     batch_tensor = torch.cat(stacked_frames_list)
-    label_tensor = torch.tensor(label_list)
+    label_tensor = torch.tensor(label_list, dtype=torch.long)
 
     if cuda:
         batch_tensor = batch_tensor.cuda()
@@ -100,6 +101,8 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64):
 
     assert nb_video_train > batch_size
     nb_batch = int(nb_video_train / batch_size)
+
+    loss_hist = 0.0
     for ep in range(nb_epochs):
         for b in range(nb_batch):
             video_batch, label_batch = get_batch(train_path, cuda, batch_size)
@@ -111,7 +114,19 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64):
             optimizer.zero_grad()
 
             # Forward prop
+            outputs = model(video_batch)
 
+            # Compute loss
+            loss = criterion(outputs, label_batch)
+
+            # Backward prop
+            loss.backward()
+            optimizer.step()
+
+            # Print stats
+            loss_hist += loss.item()
+            # if b % 100 == 99:
+            print('[%d, %5d] loss: %.3f' % (ep + 1, b + 1, loss_hist / 100))
 
 
 
@@ -123,7 +138,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     source_dir = args.source
 
-    b, l = get_batch(source_dir, True)
-    print(b.shape, l.shape)
-    print(b.get_device(), l.get_device())
-    # get_test_tensor(source_dir, True)
+    print('Create model...')
+    model = Conv3DDetector().cuda()
+
+    train(model, source_dir, True, nb_epochs=1, batch_size=32)
