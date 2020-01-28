@@ -17,6 +17,8 @@ from tqdm import tqdm
 
 INPUT_SHAPE = (3, 10, 150, 150)
 
+CHECKPOINT_PATH = './checkpoint/model_cp.pth'
+
 def atoi(text):
     return int(text) if text.isdigit() else text
 
@@ -81,7 +83,7 @@ def get_batch(source_dir, cuda, batch_size=64, all_videos=False):
 
     return batch_tensor, label_tensor
     
-def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=20):
+def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=20, load=False):
     # Get number of training examples
     train_path = os.path.join(source_dir, 'train')
     nb_video_train = sum(os.path.isdir(os.path.join(train_path, i)) for i in os.listdir(train_path))
@@ -97,6 +99,12 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
     # Define loss function and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters())
+
+    # Load if necessary
+    if load:
+        checkpoint = torch.load(CHECKPOINT_PATH)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
     # Get number of mini-batches
     nb_mini_batches = int(batch_size / mini_batch_size)
@@ -117,7 +125,7 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
     print(f'              {nb_batch_test} testing batches of size {batch_size}')
 
     for ep in range(nb_epochs):
-        print(f'\nEpoch # {ep}')
+        print(f'\nEpoch # {ep + 1}')
         batch_loss = 0.0
         for b in tqdm(range(nb_batch_train)):
             video_batch, label_batch = get_batch(train_path, cuda, batch_size)
@@ -184,16 +192,25 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
             
             print(f'\nTest loss = {batch_loss / nb_batch_test}.')
             print(f'Test accuracy = {batch_acc / nb_batch_test}.')
+    
+        # Save checkpoint
+        torch.save({
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict()
+        }, CHECKPOINT_PATH)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Training a 3d Convolutional model for Deepfake Detection.')
     parser.add_argument('-s', '--source', help='-s <source_dir_path> : source directory containing all training and testing data.',
                         type=str, required=True)
+    parser.add_argument('-l', '--load', help='load a model from a checkpoint file',
+                        action='store_true', default=False)
     args = parser.parse_args()
     source_dir = args.source
+    load = args.load
 
     print('Create model...')
     model = Conv3DDetector().cuda()
 
-    train(model, source_dir, True, nb_epochs=1, batch_size=256)
+    train(model, source_dir, True, nb_epochs=1, batch_size=256, load=load)
