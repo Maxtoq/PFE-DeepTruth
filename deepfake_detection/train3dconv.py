@@ -79,16 +79,16 @@ def get_batch(source_dir, cuda, batch_size=64, all_videos=False):
     batch_tensor = torch.cat(stacked_frames_list)
     label_tensor = torch.tensor(label_list, dtype=torch.long)
 
-    # if cuda:
-    #     batch_tensor = batch_tensor.cuda()
-    #     label_tensor = label_tensor.cuda()
-
     return batch_tensor, label_tensor
     
 def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=20):
     # Get number of training examples
     train_path = os.path.join(source_dir, 'train')
     nb_video_train = sum(os.path.isdir(os.path.join(train_path, i)) for i in os.listdir(train_path))
+
+    # Get number of testing examples
+    test_path = os.path.join(source_dir, 'test')
+    nb_video_test = sum(os.path.isdir(os.path.join(test_path, i)) for i in os.listdir(test_path))
 
     # Check for cuda support
     cuda = torch.cuda.is_available()
@@ -104,16 +104,22 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
 
     # Get the number of batches of training data
     assert nb_video_train > batch_size, 'Not enough data to train'
-    nb_batch = int(nb_video_train / batch_size)
+    nb_batch_train = int(nb_video_train / batch_size)
+
+    # Get the number of batches of training data
+    assert nb_video_test > batch_size, 'Not enough data to test'
+    nb_batch_test = int(nb_video_test / batch_size)
 
     print(f'Training with {nb_video_train} training videos from {train_path},')
     print(f'              {nb_mini_batches} mini-batches of size {mini_batch_size},')
-    print(f'              {nb_batch} batches of size {batch_size}')
+    print(f'              {nb_batch_train} training batches of size {batch_size},')
+    print(f'              {nb_video_test} testing videos from {test_path},')
+    print(f'              {nb_batch_test} testing batches of size {batch_size}')
 
     for ep in range(nb_epochs):
         print(f'\nEpoch # {ep}')
         batch_loss = 0.0
-        for b in tqdm(range(nb_batch)):
+        for b in tqdm(range(nb_batch_train)):
             video_batch, label_batch = get_batch(train_path, cuda, batch_size)
 
             mini_batch_loss = 0.0
@@ -124,8 +130,6 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
                 if cuda:
                     video_mini_batch = video_mini_batch.cuda()
                     label_mini_batch = label_mini_batch.cuda()
-                    # video_mini_batch = video_mini_batch.to(device)
-                    # label_mini_batch = label_mini_batch.to(device)
 
                 # Zero the parameters gradients
                 optimizer.zero_grad()
@@ -146,10 +150,40 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
             batch_loss += mini_batch_loss / nb_mini_batches
             if b % 10 == 9:
                 print('\n[%d, %5d] loss: %.3f' % (ep + 1, b + 1, batch_loss / (b + 1)))
-        
-        loss_hist = 0.0
 
+        # Testing
+        with torch.no_grad():
+            print('\nTesting...', end='')
+            batch_loss = 0.0
+            batch_acc = 0.0
+            for b in tqdm(range(nb_batch_test)):
+                video_batch, label_batch = get_batch(test_path, cuda, batch_size)
 
+                mini_batch_loss = 0.0
+                mini_batch_acc = 0.0
+                for mb in range(nb_mini_batches):
+                    video_mini_batch = video_batch[mb * mini_batch_size:(mb + 1) * mini_batch_size]
+                    label_mini_batch = label_batch[mb * mini_batch_size:(mb + 1) * mini_batch_size]
+
+                    if cuda:
+                        video_mini_batch = video_mini_batch.cuda()
+                        label_mini_batch = label_mini_batch.cuda()
+
+                    # Forward prop
+                    outputs = model(video_mini_batch)
+
+                    # Compute loss
+                    mini_batch_loss += criterion(outputs, label_mini_batch).item()
+
+                    # Compute accuracy on mini-batch
+                    _, predicted = torch.max(outputs.data, 1)
+                    mini_batch_acc += (predicted == label_mini_batch).sum().item() / label_mini_batch.size(0)
+
+                batch_loss += mini_batch_loss / nb_mini_batches
+                batch_acc += mini_batch_acc / nb_mini_batches
+            
+            print(f'\nTest loss = {batch_loss / nb_batch_test}.')
+            print(f'Test accuracy = {batch_acc / nb_batch_test}.')
 
 
 if __name__ == '__main__':
