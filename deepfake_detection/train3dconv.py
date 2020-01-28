@@ -213,4 +213,4 @@ if __name__ == '__main__':
     print('Create model...')
     model = Conv3DDetector().cuda()
 
-    train(model, source_dir, True, nb_epochs=1, batch_size=256, load=load)
+    train(model, source_dir, True, nb_epochs=1, batch_size=1024, load=load)
