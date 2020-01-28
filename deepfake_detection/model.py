@@ -27,7 +27,7 @@ class Conv3DDetector(torch.nn.Module):
         
         # 5th 3D Conv layer
         self.conv3D_5a = nn.Conv3d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=1)
-        #self.conv3D_5b = nn.Conv3d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1)
+        self.conv3D_5b = nn.Conv3d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1)
         self.maxpool3D_5 = nn.MaxPool3d(kernel_size=(1, 2, 2), stride=(1, 2, 2))
         
         # Fully Connected layer
@@ -49,7 +49,7 @@ class Conv3DDetector(torch.nn.Module):
         out = self.maxpool3D_4(out)
         
         out = F.relu(self.conv3D_5a(out))
-        #out = F.relu(self.conv3D_5b(out))
+        out = F.relu(self.conv3D_5b(out))
         out = self.maxpool3D_5(out)
         
         out = torch.flatten(out, start_dim=1)

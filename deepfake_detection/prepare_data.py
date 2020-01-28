@@ -56,10 +56,10 @@ def create_data(source_dir, output_dir, label, train_split=0.8, nb_sample=15):
         list_frames = list_frames[15:-15]
 
         for i in range(nb_sample):
-            sample_frames = [list_frames.pop(0)]
+            sample_frames = []
             while len(list_frames) >= NB_FRAMES - len(sample_frames):
                 next_frame = list_frames.pop(0)
-                if get_frame_id(next_frame) == get_frame_id(sample_frames[-1]) + 1:
+                if len(sample_frames) > 0 and get_frame_id(next_frame) == get_frame_id(sample_frames[-1]) + 1:
                     sample_frames.append(next_frame)
                     if len(sample_frames) == NB_FRAMES:
                         break

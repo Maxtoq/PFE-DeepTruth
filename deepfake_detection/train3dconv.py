@@ -24,7 +24,7 @@ def natural_keys(text):
     """ Sort in 'human' order. """
     return [atoi(c) for c in re.split(r'(\d+)', text)]
 
-def preprocess_image(img, cuda):
+def preprocess_image(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = Image.fromarray(img)
     tf = transforms.Compose([
@@ -36,7 +36,7 @@ def preprocess_image(img, cuda):
 
     return preproc_img
 
-def get_stacked_frames(video_dir, cuda):
+def get_stacked_frames(video_dir):
     """ Stack all frames of a video directory and return them in a tensor. """
     frames = []
     file_names = os.listdir(video_dir)
@@ -45,7 +45,7 @@ def get_stacked_frames(video_dir, cuda):
         if not im.endswith('.jpg'):
             continue
         img = cv2.imread(os.path.join(video_dir, im))
-        preproc_img = preprocess_image(img, cuda)
+        preproc_img = preprocess_image(img)
         frames.append(preproc_img.unsqueeze(1))
 
     frame_tensor = torch.cat(frames, dim=1)
@@ -64,11 +64,9 @@ def get_batch(source_dir, cuda, batch_size=64, all_videos=False):
 
     stacked_frames_list = []
     label_list = []
-    for i in range(batch_size):
-        dir_name = video_dirs.pop(0)
-        
+    for dir_name in video_dirs[:batch_size]:
         # Get frames of then chosen video in a tensor
-        stacked_frames = get_stacked_frames(os.path.join(source_dir, dir_name), cuda)
+        stacked_frames = get_stacked_frames(os.path.join(source_dir, dir_name))
         stacked_frames_list.append(stacked_frames.unsqueeze(0))
         
         # Get label of video
@@ -76,57 +74,80 @@ def get_batch(source_dir, cuda, batch_size=64, all_videos=False):
         if label_str not in ['0', '1']:
             print(f'ERROR: {dir_name} has bad label.')
             exit(0)
-        # label = np.zeros((2))
-        # label[int(label_str)] = 1.0
         label_list.append(int(label_str))
 
     batch_tensor = torch.cat(stacked_frames_list)
     label_tensor = torch.tensor(label_list, dtype=torch.long)
 
-    if cuda:
-        batch_tensor = batch_tensor.cuda()
-        label_tensor = label_tensor.cuda()
+    # if cuda:
+    #     batch_tensor = batch_tensor.cuda()
+    #     label_tensor = label_tensor.cuda()
 
     return batch_tensor, label_tensor
     
-def train(model, source_dir, cuda, nb_epochs=10, batch_size=64):
+def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=20):
+    # Get number of training examples
     train_path = os.path.join(source_dir, 'train')
     nb_video_train = sum(os.path.isdir(os.path.join(train_path, i)) for i in os.listdir(train_path))
 
+    # Check for cuda support
     cuda = torch.cuda.is_available()
     device = torch.device('cuda:0' if cuda else 'CPU')
 
+    # Define loss function and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters())
 
-    assert nb_video_train > batch_size
+    # Get number of mini-batches
+    nb_mini_batches = int(batch_size / mini_batch_size)
+    batch_size = nb_mini_batches * mini_batch_size
+
+    # Get the number of batches of training data
+    assert nb_video_train > batch_size, 'Not enough data to train'
     nb_batch = int(nb_video_train / batch_size)
 
-    loss_hist = 0.0
+    print(f'Training with {nb_video_train} training videos from {train_path},')
+    print(f'              {nb_mini_batches} mini-batches of size {mini_batch_size},')
+    print(f'              {nb_batch} batches of size {batch_size}')
+
     for ep in range(nb_epochs):
-        for b in range(nb_batch):
+        print(f'\nEpoch # {ep}')
+        batch_loss = 0.0
+        for b in tqdm(range(nb_batch)):
             video_batch, label_batch = get_batch(train_path, cuda, batch_size)
 
-            video_batch = video_batch.to(device)
-            label_batch = label_batch.to(device)
+            mini_batch_loss = 0.0
+            for mb in range(nb_mini_batches):
+                video_mini_batch = video_batch[mb * mini_batch_size:(mb + 1) * mini_batch_size]
+                label_mini_batch = label_batch[mb * mini_batch_size:(mb + 1) * mini_batch_size]
 
-            # Zero the parameters gradients
-            optimizer.zero_grad()
+                if cuda:
+                    video_mini_batch = video_mini_batch.cuda()
+                    label_mini_batch = label_mini_batch.cuda()
+                    # video_mini_batch = video_mini_batch.to(device)
+                    # label_mini_batch = label_mini_batch.to(device)
 
-            # Forward prop
-            outputs = model(video_batch)
+                # Zero the parameters gradients
+                optimizer.zero_grad()
 
-            # Compute loss
-            loss = criterion(outputs, label_batch)
+                # Forward prop
+                outputs = model(video_mini_batch)
 
-            # Backward prop
-            loss.backward()
-            optimizer.step()
+                # Compute loss
+                loss = criterion(outputs, label_mini_batch)
 
-            # Print stats
-            loss_hist += loss.item()
-            # if b % 100 == 99:
-            print('[%d, %5d] loss: %.3f' % (ep + 1, b + 1, loss_hist / 100))
+                # Backward prop
+                loss.backward()
+                optimizer.step()
+
+                # Save stats
+                mini_batch_loss += loss.item()
+
+            batch_loss += mini_batch_loss / nb_mini_batches
+            if b % 10 == 9:
+                print('\n[%d, %5d] loss: %.3f' % (ep + 1, b + 1, batch_loss / (b + 1)))
+        
+        loss_hist = 0.0
 
 
 
@@ -141,4 +162,4 @@ if __name__ == '__main__':
     print('Create model...')
     model = Conv3DDetector().cuda()
 
-    train(model, source_dir, True, nb_epochs=1, batch_size=32)
+    train(model, source_dir, True, nb_epochs=1, batch_size=256)
