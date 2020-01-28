@@ -131,7 +131,7 @@ if __name__ == '__main__':
             count_files += 1
             print(f'\nFile {count_files}/{nb_files}')
             video_file = os.path.join(dirpath, f)
-            if video_file[-4:] != '.mp4':
+            if video_file[-4:] in ['.mp4', '.avi']:
                 print(f'\'{video_file}\' is not a video file.')
                 continue
             print('Analysing', video_file)
