@@ -10,6 +10,7 @@ import torch.optim as optim
 
 from model import Conv3DDetector
 
+from torch.autograd import Variable
 from torchvision import transforms
 from PIL import Image
 from tqdm import tqdm
@@ -17,7 +18,7 @@ from tqdm import tqdm
 
 INPUT_SHAPE = (3, 10, 150, 150)
 
-CHECKPOINT_PATH = './checkpoint/model_cp.pth'
+CHECKPOINT_PATH = './deepfake_detection/checkpoints/3DConv_model_cp.pth'
 
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -83,7 +84,7 @@ def get_batch(source_dir, cuda, batch_size=64, all_videos=False):
 
     return batch_tensor, label_tensor
     
-def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=20, load=False):
+def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=8, load=False):
     # Get number of training examples
     train_path = os.path.join(source_dir, 'train')
     nb_video_train = sum(os.path.isdir(os.path.join(train_path, i)) for i in os.listdir(train_path))
@@ -132,8 +133,8 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
 
             mini_batch_loss = 0.0
             for mb in range(nb_mini_batches):
-                video_mini_batch = video_batch[mb * mini_batch_size:(mb + 1) * mini_batch_size]
-                label_mini_batch = label_batch[mb * mini_batch_size:(mb + 1) * mini_batch_size]
+                video_mini_batch = Variable(video_batch[mb * mini_batch_size:(mb + 1) * mini_batch_size])
+                label_mini_batch = Variable(label_batch[mb * mini_batch_size:(mb + 1) * mini_batch_size])
 
                 if cuda:
                     video_mini_batch = video_mini_batch.cuda()
@@ -210,7 +211,8 @@ if __name__ == '__main__':
     source_dir = args.source
     load = args.load
 
-    print('Create model...')
+    print('Create model... ', end='')
     model = Conv3DDetector().cuda()
+    print('end.')
 
-    train(model, source_dir, True, nb_epochs=1, batch_size=1024, load=load)
+    train(model, source_dir, True, nb_epochs=1, batch_size=64, load=load)
