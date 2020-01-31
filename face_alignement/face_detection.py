@@ -124,7 +124,8 @@ if __name__ == '__main__':
 
     detector = dlib.get_frontal_face_detector()
     sp = dlib.shape_predictor(SHAPE_PREDICTOR_FILE)
-    metadata = pd.read_json('F:\\dfdc_train_part_0\\metadata.json').T
+    metadat_f = os.path.join(source_dir, "metadata.json")
+    metadata = pd.read_json(metadat_f).T
 
     nb_files = 0
     for (dirpath, dirnames, filenames) in os.walk(source_dir):
