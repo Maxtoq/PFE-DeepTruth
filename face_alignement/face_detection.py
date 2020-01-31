@@ -5,7 +5,7 @@ import dlib
 import math
 import argparse
 import numpy as np
-
+import pandas as pd
 
 SHAPE_PREDICTOR_FILE = "face_alignement/shape_predictor_5_face_landmarks.dat"
 
@@ -42,38 +42,11 @@ class Face(object):
         return True
 
 
-def save_frames(persons, video_file, output_dir, verbose=False):
-    count = 0
-    for i, p in enumerate(persons):
-        if verbose:
-            print(f"Person {i} with {len(p.frames.keys())} frames")
-        if len(p.frames) >= 100:
-            count += 1
-            video_name = video_file.replace('\\', '_')[3:-4] + '_face' + str(i)
-            # Create dir
-            dir_path = os.path.join(output_dir, video_name)
-            if not os.path.exists(dir_path):
-                os.makedirs(dir_path)
-
-            if verbose:
-                print(f'Saving frames in {dir_path}...')
-            # Save pictures TO MODIFY WITH nb_frames
-            for k, f in p.frames.items():
-                cv2.imwrite(os.path.join(dir_path, f'frame{k}.jpg'), f)
-
-    return count
-
-def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100):
-    persons_raw = []
-    persons_c23 = []
-    persons_c40 = []
+def align_video(video_file, detector, shape_predictor, output_dir, label, nb_frames=100):
+    persons = []
 
     vid_raw = cv2.VideoCapture(video_file)
     success, image_raw = vid_raw.read()
-    vid_c23 = cv2.VideoCapture(video_file.replace('raw', 'c23'))
-    success, image_c23 = vid_c23.read()
-    vid_c40 = cv2.VideoCapture(video_file.replace('raw', 'c40'))
-    success, image_c40 = vid_c40.read()
 
     min_height = None
     frame_num = 0
@@ -86,10 +59,11 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
                 min_height = detection.height() * (2 / 3)
             if detection.height() < min_height:
                 break
+            elif detection.height() > min_height * (5 / 3):
+                min_height = min_height * (5 / 3)
+
             # Align face and crop
             face_im_raw = dlib.get_face_chip(image_raw, shape_predictor(image_raw, detection))
-            face_im_c23 = dlib.get_face_chip(image_c23, shape_predictor(image_c23, detection))
-            face_im_c40 = dlib.get_face_chip(image_c40, shape_predictor(image_c40, detection))
             # Assign face to person
             is_known = False
             dist = []
@@ -98,10 +72,8 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
                 dist.append(p.get_dist(detection.tl_corner(), frame_num))
             # Add frame to closest
             if len(dist) > 0 and min(dist) < 10000:
-                is_known = persons_raw[np.argmin(dist)].add_frame(detection.tl_corner(), detection.br_corner(), face_im_raw, frame_num)
-                persons_c23[np.argmin(dist)].add_frame(detection.tl_corner(), detection.br_corner(), face_im_c23, frame_num)
-                persons_c40[np.argmin(dist)].add_frame(detection.tl_corner(), detection.br_corner(), face_im_c40, frame_num)
-
+                is_known = persons[np.argmin(dist)].add_frame(detection.tl_corner(), detection.br_corner(), face_im, frame_num)
+                
             if not is_known:
                 persons_raw.append(Face(
                                 detection.tl_corner(), 
@@ -110,29 +82,27 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
                                 image_raw.shape[:-1],
                                 frame_num
                             ))
-                persons_c23.append(Face(
-                                detection.tl_corner(), 
-                                detection.br_corner(), 
-                                face_im_c23, 
-                                image_c23.shape[:-1],
-                                frame_num
-                            ))
-                persons_c40.append(Face(
-                                detection.tl_corner(), 
-                                detection.br_corner(), 
-                                face_im_c40, 
-                                image_c40.shape[:-1],
-                                frame_num
-                            ))
 
         success, image_raw = vid_raw.read()
-        success, image_c23 = vid_c23.read()
-        success, image_c40 = vid_c40.read()
         frame_num += 1
 
-    save_frames(persons_c23, video_file.replace('raw', 'c23'), output_dir)
-    save_frames(persons_c40, video_file.replace('raw', 'c40'), output_dir)
-    return save_frames(persons_raw, video_file, output_dir, verbose=True)
+    count = 0
+    for i, p in enumerate(persons_raw):
+        print(f"Person {i} with {len(p.frames)} frames")
+        if len(p.frames) >= 80:
+            count += 1
+            video_name = video_file.replace('\\', '_')[3:-4] + '_face' + str(i) + "_{}".format(label)
+            # Create dir
+            dir_path = os.path.join(output_dir, video_name)
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path)
+
+            print(f'Saving frames in {dir_path}...')
+            # Save pictures TO MODIFY WITH nb_frames
+            for k, f in p.frames.items():
+                cv2.imwrite(os.path.join(dir_path, f'frame{k}.jpg'), f)
+
+    return count
 
 
 if __name__ == '__main__':
@@ -152,12 +122,10 @@ if __name__ == '__main__':
         print('ERROR: Output directory (-o) must be specified. Enter \'python face_detection.py -h\' to prompt help.')
         exit(0)
 
-    if source_dir[-4:] != '\\raw':
-        print('ERROR: Source directory must a path to the \'raw\' directory.')
-        exit(0)
-
     detector = dlib.get_frontal_face_detector()
     sp = dlib.shape_predictor(SHAPE_PREDICTOR_FILE)
+    metadat_f = os.path.join(source_dir, "metadata.json")
+    metadata = pd.read_json(metadat_f).T
 
     nb_files = 0
     for (dirpath, dirnames, filenames) in os.walk(source_dir):
@@ -172,6 +140,12 @@ if __name__ == '__main__':
                 print(f'\'{video_file}\' is not a video file.')
                 continue
             print('Analysing', video_file)
-            count_faces = align_video(video_file, detector, sp, output_dir)
+            if metadata.loc[f,"label"] == "REAL":
+             label = 0
+             output_dir = os.path.join(output_dir, 'originals')
+            elif metadata.loc[f,"label"] =="FAKE":
+             label=1 
+             output_dir = os.path.join(output_dir, 'manipulated')
+            count_faces = align_video(video_file, detector, sp, output_dir, label)
             if count_faces != 1:
                 print(f'WARNING : Video \'{video_file}\' has {count_faces} faces.')
