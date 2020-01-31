@@ -5,7 +5,7 @@ import dlib
 import math
 import argparse
 import numpy as np
-
+import pandas as pd
 
 SHAPE_PREDICTOR_FILE = "face_alignement/shape_predictor_5_face_landmarks.dat"
 
@@ -42,7 +42,7 @@ class Face(object):
         return True
 
 
-def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100):
+def align_video(video_file, detector, shape_predictor, output_dir, label, nb_frames=100):
     persons = []
 
     vid = cv2.VideoCapture(video_file)
@@ -89,9 +89,9 @@ def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100
     count = 0
     for i, p in enumerate(persons):
         print(f"Person {i} with {len(p.frames)} frames")
-        if len(p.frames) >= 100:
+        if len(p.frames) >= 80:
             count += 1
-            video_name = video_file.replace('\\', '_')[3:-4] + '_face' + str(i)
+            video_name = video_file.replace('\\', '_')[3:-4] + '_face' + str(i) + "_{}".format(label)
             # Create dir
             dir_path = os.path.join(output_dir, video_name)
             if not os.path.exists(dir_path):
@@ -124,6 +124,7 @@ if __name__ == '__main__':
 
     detector = dlib.get_frontal_face_detector()
     sp = dlib.shape_predictor(SHAPE_PREDICTOR_FILE)
+    metadata = pd.read_json('F:\\dfdc_train_part_0\\metadata.json').T
 
     nb_files = 0
     for (dirpath, dirnames, filenames) in os.walk(source_dir):
@@ -138,6 +139,10 @@ if __name__ == '__main__':
                 print(f'\'{video_file}\' is not a video file.')
                 continue
             print('Analysing', video_file)
-            count_faces = align_video(video_file, detector, sp, output_dir)
+            if metadata.loc[f,"label"] == "REAL":
+             label = 0  
+            elif metadata.loc[f,"label"] =="FAKE":
+             label=1 
+            count_faces = align_video(video_file, detector, sp, output_dir, label )
             if count_faces != 1:
                 print(f'WARNING : Video \'{video_file}\' has {count_faces} faces.')
