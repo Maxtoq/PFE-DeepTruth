@@ -39,7 +39,8 @@ class Conv3DDetector(torch.nn.Module):
         self.maxpool3D_5 = nn.MaxPool3d(kernel_size=(1, 2, 2), stride=(1, 2, 2))
         
         # Fully Connected layer
-        self.output = nn.Linear(in_features=16384, out_features=2)
+        self.output = nn.Linear(in_features=16384, out_features=1)
+        self.output_act = nn.Sigmoid()
         
     def forward(self, x):
         out = F.relu(self.bn3D_1(self.conv3D_1(x)))
@@ -63,6 +64,7 @@ class Conv3DDetector(torch.nn.Module):
         out = torch.flatten(out, start_dim=1)
         
         out = self.output(out)
-        out = nn.Softmax(dim=1)(out)
+        #out = nn.Softmax(dim=1)(out)
+        out = self.output_act(out)
         
         return out

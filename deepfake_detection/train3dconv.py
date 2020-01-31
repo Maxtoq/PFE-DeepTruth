@@ -80,7 +80,7 @@ def get_batch(source_dir, cuda, batch_size=64, all_videos=False):
         label_list.append(int(label_str))
 
     batch_tensor = torch.cat(stacked_frames_list)
-    label_tensor = torch.tensor(label_list, dtype=torch.long)
+    label_tensor = torch.tensor(label_list, dtype=torch.float).unsqueeze(1)#, dtype=torch.long)
 
     return batch_tensor, label_tensor
     
@@ -98,14 +98,17 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
     device = torch.device('cuda:0' if cuda else 'CPU')
 
     # Define loss function and optimizer
-    criterion = nn.CrossEntropyLoss()
+    # criterion = nn.CrossEntropyLoss()
+    criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters())
 
     # Load if necessary
     if load:
+        print('Loading model... ', end='')
         checkpoint = torch.load(CHECKPOINT_PATH)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        print('end.')
 
     # Get number of mini-batches
     nb_mini_batches = int(batch_size / mini_batch_size)
@@ -126,9 +129,13 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
     print(f'              {nb_batch_test} testing batches of size {batch_size}')
 
     for ep in range(nb_epochs):
+        # if ep==1:
+        #     break
         print(f'\nEpoch # {ep + 1}')
         batch_loss = 0.0
         for b in tqdm(range(nb_batch_train)):
+            # if b==0:
+            #     break
             video_batch, label_batch = get_batch(train_path, cuda, batch_size)
 
             mini_batch_loss = 0.0
@@ -157,7 +164,7 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
                 mini_batch_loss += loss.item()
 
             batch_loss += mini_batch_loss / nb_mini_batches
-            if b % 10 == 9:
+            if b % 50 == 49:
                 print('\n[%d, %5d] loss: %.3f' % (ep + 1, b + 1, batch_loss / (b + 1)))
 
         # Testing
@@ -166,11 +173,15 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
             batch_loss = 0.0
             batch_acc = 0.0
             for b in tqdm(range(nb_batch_test)):
+                # if b==1:
+                #     break
                 video_batch, label_batch = get_batch(test_path, cuda, batch_size)
 
                 mini_batch_loss = 0.0
                 mini_batch_acc = 0.0
                 for mb in range(nb_mini_batches):
+                    # if mb==3:
+                    #     break
                     video_mini_batch = video_batch[mb * mini_batch_size:(mb + 1) * mini_batch_size]
                     label_mini_batch = label_batch[mb * mini_batch_size:(mb + 1) * mini_batch_size]
 
@@ -185,8 +196,7 @@ def train(model, source_dir, cuda, nb_epochs=10, batch_size=64, mini_batch_size=
                     mini_batch_loss += criterion(outputs, label_mini_batch).item()
 
                     # Compute accuracy on mini-batch
-                    _, predicted = torch.max(outputs.data, 1)
-                    mini_batch_acc += (predicted == label_mini_batch).sum().item() / label_mini_batch.size(0)
+                    mini_batch_acc += int(torch.sum((outputs.round() == label_mini_batch))) / label_mini_batch.size(0)
 
                 batch_loss += mini_batch_loss / nb_mini_batches
                 batch_acc += mini_batch_acc / nb_mini_batches
@@ -215,4 +225,4 @@ if __name__ == '__main__':
     model = Conv3DDetector().cuda()
     print('end.')
 
-    train(model, source_dir, True, nb_epochs=1, batch_size=64, load=load)
+    train(model, source_dir, True, nb_epochs=10, batch_size=64, load=load)
