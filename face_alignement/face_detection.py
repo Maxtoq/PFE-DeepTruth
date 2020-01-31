@@ -42,17 +42,17 @@ class Face(object):
         return True
 
 
-def align_video(video_file, detector, shape_predictor, output_dir, label, nb_frames=100):
+def align_video(video_file, detector, shape_predictor, output_dir, nb_frames=100):
     persons = []
 
-    vid_raw = cv2.VideoCapture(video_file)
-    success, image_raw = vid_raw.read()
+    vid = cv2.VideoCapture(video_file)
+    success, image = vid.read()
 
     min_height = None
     frame_num = 0
     while success:
         #print(f"Frame #{frame_num}")
-        dets = detector(image_raw, 0)
+        dets = detector(image, 0)
 
         for detection in dets:
             if min_height is None:
@@ -63,35 +63,35 @@ def align_video(video_file, detector, shape_predictor, output_dir, label, nb_fra
                 min_height = min_height * (5 / 3)
 
             # Align face and crop
-            face_im_raw = dlib.get_face_chip(image_raw, shape_predictor(image_raw, detection))
+            face_im = dlib.get_face_chip(image, shape_predictor(image, detection))
             # Assign face to person
             is_known = False
             dist = []
             # Compute distances to all persons
-            for p in persons_raw:
+            for p in persons:
                 dist.append(p.get_dist(detection.tl_corner(), frame_num))
             # Add frame to closest
             if len(dist) > 0 and min(dist) < 10000:
                 is_known = persons[np.argmin(dist)].add_frame(detection.tl_corner(), detection.br_corner(), face_im, frame_num)
                 
             if not is_known:
-                persons_raw.append(Face(
+                persons.append(Face(
                                 detection.tl_corner(), 
                                 detection.br_corner(), 
-                                face_im_raw, 
-                                image_raw.shape[:-1],
+                                face_im, 
+                                image.shape[:-1],
                                 frame_num
                             ))
 
-        success, image_raw = vid_raw.read()
+        success, image = vid.read()
         frame_num += 1
 
     count = 0
-    for i, p in enumerate(persons_raw):
+    for i, p in enumerate(persons):
         print(f"Person {i} with {len(p.frames)} frames")
         if len(p.frames) >= 80:
             count += 1
-            video_name = video_file.replace('\\', '_')[3:-4] + '_face' + str(i) + "_{}".format(label)
+            video_name = video_file.replace('\\', '_')[3:-4] + '_face' + str(i)
             # Create dir
             dir_path = os.path.join(output_dir, video_name)
             if not os.path.exists(dir_path):
@@ -136,16 +136,14 @@ if __name__ == '__main__':
             count_files += 1
             print(f'\nFile {count_files}/{nb_files}')
             video_file = os.path.join(dirpath, f)
-            if video_file[-4:] in ['.mp4', '.avi']:
+            if video_file[-4:] not in ['.mp4', '.avi']:
                 print(f'\'{video_file}\' is not a video file.')
                 continue
             print('Analysing', video_file)
             if metadata.loc[f,"label"] == "REAL":
-             label = 0
-             output_dir = os.path.join(output_dir, 'originals')
+                label_dir = os.path.join(output_dir, 'originals')
             elif metadata.loc[f,"label"] =="FAKE":
-             label=1 
-             output_dir = os.path.join(output_dir, 'manipulated')
-            count_faces = align_video(video_file, detector, sp, output_dir, label)
+                label_dir = os.path.join(output_dir, 'manipulated')
+            count_faces = align_video(video_file, detector, sp, label_dir)
             if count_faces != 1:
                 print(f'WARNING : Video \'{video_file}\' has {count_faces} faces.')
