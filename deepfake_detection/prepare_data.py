@@ -63,8 +63,10 @@ def create_data(source_dir, output_dir, label, train_split=0.8, nb_sample=15):
                     sample_frames.append(next_frame)
                     if len(sample_frames) == NB_FRAMES:
                         break
-                else:
+                elif len(list_frames) >= NB_FRAMES:
                     sample_frames = [next_frame]
+                else:
+                    break
             # Save them in a new dir in output_dir with label in dir_path
             dir_name = os.path.join(output_dir, type_data, cut_video_name(video_dir) + f'_{str(i)}_{label}')
             # Create dir
