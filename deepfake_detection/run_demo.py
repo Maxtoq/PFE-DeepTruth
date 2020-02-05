@@ -92,7 +92,6 @@ def test_model(video_dir, model, nb_test, cuda):
             frame_tensor = frame_tensor.cuda()
 
         pred = model(frame_tensor)
-        print(pred)
 
         preds.append(pred)
     

@@ -124,8 +124,8 @@ if __name__ == '__main__':
 
     detector = dlib.get_frontal_face_detector()
     sp = dlib.shape_predictor(SHAPE_PREDICTOR_FILE)
-    metadat_f = os.path.join(source_dir, "metadata.json")
-    metadata = pd.read_json(metadat_f).T
+    # metadat_f = os.path.join(source_dir, "metadata.json")
+    # metadata = pd.read_json(metadat_f).T
 
     nb_files = 0
     for (dirpath, dirnames, filenames) in os.walk(source_dir):
@@ -140,10 +140,10 @@ if __name__ == '__main__':
                 print(f'\'{video_file}\' is not a video file.')
                 continue
             print('Analysing', video_file)
-            if metadata.loc[f,"label"] == "REAL":
-                label_dir = os.path.join(output_dir, 'originals')
-            elif metadata.loc[f,"label"] =="FAKE":
-                label_dir = os.path.join(output_dir, 'manipulated')
-            count_faces = align_video(video_file, detector, sp, label_dir)
+            # if metadata.loc[f,"label"] == "REAL":
+            #     label_dir = os.path.join(output_dir, 'originals')
+            # elif metadata.loc[f,"label"] =="FAKE":
+            #     label_dir = os.path.join(output_dir, 'manipulated')
+            count_faces = align_video(video_file, detector, sp, output_dir)
             if count_faces != 1:
                 print(f'WARNING : Video \'{video_file}\' has {count_faces} faces.')
